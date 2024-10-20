@@ -361,6 +361,9 @@ dependencies {
     androidTestImplementation libs.okio
 
     androidTestUtil libs.androidx.test.orchestrator
+
+    debugImplementation libs.leakcanary.android
+
 }
 
 // -------------------------------------------------------------------------------------------------
