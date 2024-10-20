@@ -15,7 +15,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import mozilla.components.feature.addons.Addon
 import mozilla.components.feature.addons.AddonManagerException
 import mozilla.components.feature.addons.ui.AddonsManagerAdapter
@@ -118,24 +120,32 @@ class AddonsFragment : Fragment(), AddonsManagerAdapterDelegate {
     private val installAddon: ((Addon) -> Unit) = { addon ->
         addonProgressOverlay.visibility = View.VISIBLE
         isInstallationInProgress = true
-        requireContext().components.core.addonManager.installAddon(
-            url = addon.downloadUrl,
-            onSuccess = {
-                runIfFragmentIsAttached {
-                    isInstallationInProgress = false
-                    this@AddonsFragment.view?.let { view ->
-                        bindRecyclerView(view)
+        scope.launch {
+            requireContext().components.core.addonManager.installAddon(
+                url = addon.downloadUrl,
+                onSuccess = {
+                    scope.launch(Dispatchers.Main) {
+                        runIfFragmentIsAttached {
+                            isInstallationInProgress = false
+                            this@AddonsFragment.view?.let { view ->
+                                bindRecyclerView(view)
+                            }
+                            addonProgressOverlay.visibility = View.GONE
+                        }
                     }
-                    addonProgressOverlay.visibility = View.GONE
-                }
-            },
-            onError = { _ ->
-                runIfFragmentIsAttached {
-                    addonProgressOverlay.visibility = View.GONE
-                    isInstallationInProgress = false
-                }
-            },
-        )
+
+                },
+                onError = { _ ->
+                    scope.launch(Dispatchers.Main) {
+                        runIfFragmentIsAttached {
+                            addonProgressOverlay.visibility = View.GONE
+                            isInstallationInProgress = false
+                        }
+                    }
+                },
+            )
+        }
+
     }
 
     /**
