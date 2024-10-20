@@ -77,12 +77,13 @@ abstract class BaseBrowserFragment : Fragment(), UserInteractionHandler, Activit
     private val swipeRefreshFeature = ViewBoundFeatureWrapper<SwipeRefreshFeature>()
     private val windowFeature = ViewBoundFeatureWrapper<WindowFeature>()
     private val webAuthnFeature = ViewBoundFeatureWrapper<WebAuthnFeature>()
-    private val fullScreenMediaSessionFeature = ViewBoundFeatureWrapper<MediaSessionFullscreenFeature>()
+    private val fullScreenMediaSessionFeature =
+        ViewBoundFeatureWrapper<MediaSessionFullscreenFeature>()
     private val lastTabFeature = ViewBoundFeatureWrapper<LastTabFeature>()
 
-    private val engineView: EngineView
+    protected var engineView: EngineView? = null
         get() = requireView().findViewById<View>(R.id.engineView) as EngineView
-    private val toolbar: BrowserToolbar
+    protected var toolbar: BrowserToolbar? = null
         get() = requireView().findViewById(R.id.toolbar)
     private val findInPageBar: FindInPageBar
         get() = requireView().findViewById(R.id.findInPageBar)
@@ -166,54 +167,63 @@ abstract class BaseBrowserFragment : Fragment(), UserInteractionHandler, Activit
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
 
-        sessionFeature.set(
-            feature = SessionFeature(
-                requireComponents.core.store,
-                requireComponents.useCases.sessionUseCases.goBack,
-                requireComponents.useCases.sessionUseCases.goForward,
-                engineView,
-                sessionId,
-            ),
-            owner = this,
-            view = view,
-        )
+        engineView?.let { engineView ->
+            sessionFeature.set(
+                feature = SessionFeature(
+                    requireComponents.core.store,
+                    requireComponents.useCases.sessionUseCases.goBack,
+                    requireComponents.useCases.sessionUseCases.goForward,
+                    engineView,
+                    sessionId,
+                ),
+                owner = this,
+                view = view,
+            )
+        }
 
-        (toolbar.layoutParams as? CoordinatorLayout.LayoutParams)?.apply {
+
+        (toolbar?.layoutParams as? CoordinatorLayout.LayoutParams)?.apply {
             behavior = EngineViewScrollingBehavior(
                 view.context,
                 null,
                 MozacToolbarBehaviorToolbarPosition.BOTTOM,
             )
         }
-        toolbarIntegration.set(
-            feature = ToolbarIntegration(
-                requireContext(),
-                toolbar,
-                requireComponents.core.historyStorage,
-                requireComponents.core.store,
-                requireComponents.useCases.sessionUseCases,
-                requireComponents.useCases.tabsUseCases,
-                requireComponents.useCases.webAppUseCases,
-                sessionId,
-            ),
-            owner = this,
-            view = view,
-        )
 
-        contextMenuIntegration.set(
-            feature = ContextMenuIntegration(
-                requireContext(),
-                parentFragmentManager,
-                requireComponents.core.store,
-                requireComponents.useCases.tabsUseCases,
-                requireComponents.useCases.contextMenuUseCases,
-                engineView,
-                view,
-                sessionId,
-            ),
-            owner = this,
-            view = view,
-        )
+        toolbar?.let { toolbar ->
+            toolbarIntegration.set(
+                feature = ToolbarIntegration(
+                    requireContext(),
+                    toolbar,
+                    requireComponents.core.historyStorage,
+                    requireComponents.core.store,
+                    requireComponents.useCases.sessionUseCases,
+                    requireComponents.useCases.tabsUseCases,
+                    requireComponents.useCases.webAppUseCases,
+                    sessionId,
+                ),
+                owner = this,
+                view = view,
+            )
+        }
+
+        engineView?.let { engineView ->
+            contextMenuIntegration.set(
+                feature = ContextMenuIntegration(
+                    requireContext(),
+                    parentFragmentManager,
+                    requireComponents.core.store,
+                    requireComponents.useCases.tabsUseCases,
+                    requireComponents.useCases.contextMenuUseCases,
+                    engineView,
+                    view,
+                    sessionId,
+                ),
+                owner = this,
+                view = view,
+            )
+        }
+
         shareDownloadsFeature.set(
             ShareDownloadFeature(
                 context = requireContext().applicationContext,
@@ -252,7 +262,10 @@ abstract class BaseBrowserFragment : Fragment(), UserInteractionHandler, Activit
                 sessionId = sessionId,
                 fragmentManager = parentFragmentManager,
                 launchInApp = {
-                    prefs.getBoolean(requireContext().getPreferenceKey(R.string.pref_key_launch_external_app), false)
+                    prefs.getBoolean(
+                        requireContext().getPreferenceKey(R.string.pref_key_launch_external_app),
+                        false
+                    )
                 },
             ),
             owner = this,
@@ -286,7 +299,10 @@ abstract class BaseBrowserFragment : Fragment(), UserInteractionHandler, Activit
         )
 
         windowFeature.set(
-            feature = WindowFeature(requireComponents.core.store, requireComponents.useCases.tabsUseCases),
+            feature = WindowFeature(
+                requireComponents.core.store,
+                requireComponents.useCases.tabsUseCases
+            ),
             owner = this,
             view = view,
         )
@@ -303,16 +319,19 @@ abstract class BaseBrowserFragment : Fragment(), UserInteractionHandler, Activit
             view = view,
         )
 
-        findInPageIntegration.set(
-            feature = FindInPageIntegration(
-                requireComponents.core.store,
-                sessionId,
-                findInPageBar as FindInPageView,
-                engineView,
-            ),
-            owner = this,
-            view = view,
-        )
+        engineView?.let { engineView ->
+            findInPageIntegration.set(
+                feature = FindInPageIntegration(
+                    requireComponents.core.store,
+                    sessionId,
+                    findInPageBar as FindInPageView,
+                    engineView,
+                ),
+                owner = this,
+                view = view,
+            )
+        }
+
 
         sitePermissionFeature.set(
             feature = SitePermissionsFeature(
@@ -350,15 +369,18 @@ abstract class BaseBrowserFragment : Fragment(), UserInteractionHandler, Activit
             view = view,
         )
 
-        (swipeRefresh.layoutParams as? CoordinatorLayout.LayoutParams)?.apply {
-            behavior = EngineViewClippingBehavior(
-                context,
-                null,
-                swipeRefresh,
-                toolbar.height,
-                MozacEngineBehaviorToolbarPosition.BOTTOM,
-            )
+        toolbar?.let { toolbar ->
+            (swipeRefresh.layoutParams as? CoordinatorLayout.LayoutParams)?.apply {
+                behavior = EngineViewClippingBehavior(
+                    context,
+                    null,
+                    swipeRefresh,
+                    toolbar.height,
+                    MozacEngineBehaviorToolbarPosition.BOTTOM,
+                )
+            }
         }
+
         swipeRefreshFeature.set(
             feature = SwipeRefreshFeature(
                 requireComponents.core.store,
@@ -406,12 +428,12 @@ abstract class BaseBrowserFragment : Fragment(), UserInteractionHandler, Activit
     private fun fullScreenChanged(enabled: Boolean) {
         if (enabled) {
             activity?.enterImmersiveMode()
-            toolbar.visibility = View.GONE
-            engineView.setDynamicToolbarMaxHeight(0)
+            toolbar?.visibility = View.GONE
+            engineView?.setDynamicToolbarMaxHeight(0)
         } else {
             activity?.exitImmersiveMode()
-            toolbar.visibility = View.VISIBLE
-            engineView.setDynamicToolbarMaxHeight(resources.getDimensionPixelSize(R.dimen.browser_toolbar_height))
+            toolbar?.visibility = View.VISIBLE
+            engineView?.setDynamicToolbarMaxHeight(resources.getDimensionPixelSize(R.dimen.browser_toolbar_height))
         }
     }
 
@@ -419,6 +441,12 @@ abstract class BaseBrowserFragment : Fragment(), UserInteractionHandler, Activit
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             requireActivity().window.attributes.layoutInDisplayCutoutMode = viewportFit
         }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        engineView = null
+        toolbar = null
     }
 
     @CallSuper
@@ -452,7 +480,7 @@ abstract class BaseBrowserFragment : Fragment(), UserInteractionHandler, Activit
     override fun onActivityResult(requestCode: Int, data: Intent?, resultCode: Int): Boolean {
         Logger.info(
             "Fragment onActivityResult received with " +
-                "requestCode: $requestCode, resultCode: $resultCode, data: $data",
+                    "requestCode: $requestCode, resultCode: $resultCode, data: $data",
         )
 
         return activityResultHandler.any { it.onActivityResult(requestCode, data, resultCode) }

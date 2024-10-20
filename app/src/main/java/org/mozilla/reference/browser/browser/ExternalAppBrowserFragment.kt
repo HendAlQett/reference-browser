@@ -34,15 +34,11 @@ class ExternalAppBrowserFragment : BaseBrowserFragment(), UserInteractionHandler
 
     override val shouldUseComposeUI: Boolean = false
 
-    private val toolbar: BrowserToolbar
-        get() = requireView().findViewById(R.id.toolbar)
-    private val engineView: EngineView
-        get() = requireView().findViewById<View>(R.id.engineView) as EngineView
-
     private val manifest: WebAppManifest?
         get() = arguments?.getWebAppManifest()
     private val trustedScopes: List<Uri>
-        get() = arguments?.getParcelableArrayListCompat(ARG_TRUSTED_SCOPES, Uri::class.java).orEmpty()
+        get() = arguments?.getParcelableArrayListCompat(ARG_TRUSTED_SCOPES, Uri::class.java)
+            .orEmpty()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -50,45 +46,52 @@ class ExternalAppBrowserFragment : BaseBrowserFragment(), UserInteractionHandler
         val manifest = this.manifest
         val sessionId = this.sessionId
 
-        customTabsIntegration.set(
-            feature = CustomTabsIntegration(
-                requireContext(),
-                requireComponents.core.store,
-                toolbar,
-                engineView,
-                requireComponents.useCases.sessionUseCases,
-                requireComponents.useCases.customTabsUseCases,
-                sessionId!!,
-                activity,
-            ),
-            owner = this,
-            view = view,
-        )
+        if (toolbar != null && engineView != null) {
+            customTabsIntegration.set(
+                feature = CustomTabsIntegration(
+                    requireContext(),
+                    requireComponents.core.store,
+                    toolbar!!,
+                    engineView!!,
+                    requireComponents.useCases.sessionUseCases,
+                    requireComponents.useCases.customTabsUseCases,
+                    sessionId!!, // From the old code, this is potential crash, maybe this is intended
+                    activity,
+                ),
+                owner = this,
+                view = view,
+            )
+        }
 
         windowFeature.set(
             feature = CustomTabWindowFeature(
                 requireActivity(),
                 requireComponents.core.store,
-                sessionId,
+                sessionId!!,
             ),
             owner = this,
             view = view,
         )
 
-        hideToolbarFeature.set(
-            feature = WebAppHideToolbarFeature(
-                requireComponents.core.store,
-                requireComponents.core.customTabsStore,
-                sessionId,
-                manifest,
-            ) { toolbarVisible ->
-                toolbar.isVisible = toolbarVisible
-                webAppToolbarShouldBeVisible = toolbarVisible
-                if (!toolbarVisible) { engineView.setDynamicToolbarMaxHeight(0) }
-            },
-            owner = this,
-            view = toolbar,
-        )
+        toolbar?.let { toolbar ->
+            hideToolbarFeature.set(
+                feature = WebAppHideToolbarFeature(
+                    requireComponents.core.store,
+                    requireComponents.core.customTabsStore,
+                    sessionId,
+                    manifest,
+                ) { toolbarVisible ->
+                    toolbar.isVisible = toolbarVisible
+                    webAppToolbarShouldBeVisible = toolbarVisible
+                    if (!toolbarVisible) {
+                        engineView?.setDynamicToolbarMaxHeight(0)
+                    }
+                },
+                owner = this,
+                view = toolbar,
+            )
+        }
+
 
         if (manifest != null) {
             val activity = requireActivity()
